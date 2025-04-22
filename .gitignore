@@ -1,0 +1,66 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+env/
+ENV/
+.venv/
+.ENV/
+env.bak/
+venv.bak/
+
+# VS Code and PyCharm settings
+.vscode/
+.idea/
+
+# Mac & Linux system files
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log
+
+# Compiled binaries
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Test & coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+coverage.xml
+.cache
+.pytest_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# PyInstaller
+*.spec
+
+# SQLite databases
+*.sqlite3
+*.db
+
+# Windows thumbnail cache
+*.db
+
+# Icon file if not needed in repo
+# Uncomment if you don’t want to upload the icon
+# cool.ico

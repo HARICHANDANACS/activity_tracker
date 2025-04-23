@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox, filedialog, ttk
 import os
+import shutil  # Added for deleting folders
 from datetime import datetime
 from plyer import notification
 import time
@@ -61,6 +62,43 @@ def browse_folder():
             select_folder_by_name(folder_name)
         else:
             messagebox.showwarning("Folder Exists", f"Folder '{folder_name}' already exists.")
+
+# New function to delete a selected folder
+def delete_folder():
+    selected_folder = folder_listbox.curselection()
+    if selected_folder:
+        folder_name = folder_listbox.get(selected_folder[0])
+        
+        # Confirm deletion
+        confirm = messagebox.askyesno("Confirm Deletion", 
+                                      f"Are you sure you want to delete the folder '{folder_name}' and all its tasks?")
+        
+        if confirm:
+            folder_path = os.path.join("task_folders", folder_name)
+            try:
+                # Delete the folder and all its contents
+                shutil.rmtree(folder_path)
+                
+                # Update the folder list
+                update_folder_list()
+                
+                # Update UI
+                folder_label.config(text="💖 No folder selected 💖")
+                task_listbox.delete(0, tk.END)
+                task_count_label.config(text="Tasks: 0/0 completed")
+                status_label.config(text="Status: Please select a folder first")
+                task_entry.config(state='disabled')
+                add_button.config(state='disabled')
+                
+                # Reset global task_folder
+                global task_folder
+                task_folder = None
+                
+                messagebox.showinfo("Folder Deleted", f"Folder '{folder_name}' has been deleted successfully!")
+            except Exception as e:
+                messagebox.showerror("Delete Error", f"Error deleting folder: {str(e)}")
+    else:
+        messagebox.showwarning("Selection Error", "Please select a folder to delete.")
 
 # Function to select a folder
 def select_folder():
@@ -236,14 +274,21 @@ def play_sound(sound_type):
             # If both fail, use the notification system without sound
             pass
 
+# Fixed Pomodoro Timer (with thread-safe UI updates)
+def update_timer_display(text):
+    time_left_label.config(text=text)
+
 # Function for Pomodoro Timer (threaded version)
 def pomodoro_thread():
-    global pomodoro_running, pomodoro_paused, pause_time
+    global pomodoro_running, pomodoro_paused
     
     work_time = 25 * 60  # 25 minutes
     break_time = 5 * 60  # 5 minutes
     
-    notification.notify(title="Pomodoro Timer", message="Work Time Started!", timeout=5)
+    try:
+        notification.notify(title="Pomodoro Timer", message="Work Time Started!", timeout=5)
+    except Exception as e:
+        print(f"Notification error: {e}")
     
     # Work period
     remaining_time = work_time
@@ -251,20 +296,25 @@ def pomodoro_thread():
         # Check if timer is paused
         if pomodoro_paused:
             mins, secs = divmod(remaining_time, 60)
-            root.after(0, lambda m=mins, s=secs: time_left_label.config(text=f"PAUSED: {m:02}:{s:02} - Work Time"))
+            display_text = f"PAUSED: {mins:02}:{secs:02} - Work Time"
+            root.after(0, lambda t=display_text: update_timer_display(t))
             time.sleep(0.5)
             continue
             
         mins, secs = divmod(remaining_time, 60)
-        root.after(0, lambda m=mins, s=secs: time_left_label.config(text=f"Time Left: {m:02}:{s:02} - Work Time"))
+        display_text = f"Time Left: {mins:02}:{secs:02} - Work Time"
+        root.after(0, lambda t=display_text: update_timer_display(t))
         time.sleep(1)
         remaining_time -= 1
     
     if pomodoro_running:  # Only continue if not manually stopped
         # Play completion sound
-        play_sound("pomodoro_complete")
+        root.after(0, lambda: play_sound("pomodoro_complete"))
         
-        notification.notify(title="Pomodoro Timer", message="Break Time Started!", timeout=5)
+        try:
+            notification.notify(title="Pomodoro Timer", message="Break Time Started!", timeout=5)
+        except Exception as e:
+            print(f"Notification error: {e}")
         
         # Break period
         remaining_time = break_time
@@ -272,24 +322,33 @@ def pomodoro_thread():
             # Check if timer is paused
             if pomodoro_paused:
                 mins, secs = divmod(remaining_time, 60)
-                root.after(0, lambda m=mins, s=secs: time_left_label.config(text=f"PAUSED: {m:02}:{s:02} - Break Time"))
+                display_text = f"PAUSED: {mins:02}:{secs:02} - Break Time"
+                root.after(0, lambda t=display_text: update_timer_display(t))
                 time.sleep(0.5)
                 continue
                 
             mins, secs = divmod(remaining_time, 60)
-            root.after(0, lambda m=mins, s=secs: time_left_label.config(text=f"Time Left: {m:02}:{s:02} - Break Time"))
+            display_text = f"Time Left: {mins:02}:{secs:02} - Break Time"
+            root.after(0, lambda t=display_text: update_timer_display(t))
             time.sleep(1)
             remaining_time -= 1
         
         if pomodoro_running:  # If not manually stopped
             # Play completion sound
-            play_sound("pomodoro_complete")
+            root.after(0, lambda: play_sound("pomodoro_complete"))
             
-            notification.notify(title="Pomodoro Timer", message="Pomodoro Complete! Take a longer break or start a new session.", timeout=10)
-            root.after(0, lambda: time_left_label.config(text="Pomodoro Complete!"))
+            try:
+                notification.notify(title="Pomodoro Timer", 
+                                   message="Pomodoro Complete! Take a longer break or start a new session.", 
+                                   timeout=10)
+            except Exception as e:
+                print(f"Notification error: {e}")
+                
+            root.after(0, lambda: update_timer_display("Pomodoro Complete!"))
             root.after(0, lambda: pomodoro_button.config(text="Start Pomodoro"))
             
-            # Reset the state
+            # Reset the state without using global declaration here
+            # (since we already have it at the top of the function)
             pomodoro_running = False
             pomodoro_paused = False
 
@@ -387,6 +446,11 @@ create_folder_button.grid(row=0, column=0, padx=2)
 
 browse_folder_button = tk.Button(folder_buttons_frame, text="Add Existing", width=10, font=("Comic Sans MS", 9), command=browse_folder, bg="#FFB6C1", relief="raised", bd=2)
 browse_folder_button.grid(row=0, column=1, padx=2)
+
+# Add Delete Folder button
+delete_folder_button = tk.Button(sidebar_frame, text="Delete Folder 🗑️", width=15, font=("Comic Sans MS", 9), 
+                              command=delete_folder, bg="#FF9999", relief="raised", bd=2)
+delete_folder_button.pack(pady=5)
 
 # Folder list with scrollbar
 folder_list_frame = tk.Frame(sidebar_frame, bg="#FFD1DC")
@@ -492,6 +556,10 @@ def folder_double_click(event):
     select_folder()
 
 folder_listbox.bind('<Double-1>', folder_double_click)
+
+# Make sure task_folders directory exists
+if not os.path.exists("task_folders"):
+    os.makedirs("task_folders")
 
 # Start the main event loop
 root.mainloop()
